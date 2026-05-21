@@ -33,6 +33,35 @@ If `.env.local` is empty the app still renders, with a banner reminding you to f
 | `npm run typecheck` | TypeScript project build, no emit |
 | `npm run db:types` | Hint for generating Supabase types (run the printed command) |
 
+## Database setup
+
+The Postgres schema lives in [`supabase/migrations/`](supabase/migrations/).
+Two ways to apply it to your Supabase project:
+
+### Option A — Dashboard SQL editor (no install)
+
+In the Supabase dashboard for your project (project ref is in the URL — e.g.
+`oeqkrphmtqlyuyollxck`), open **SQL Editor → New query**, then paste and run
+each file **in order**:
+
+1. [`supabase/migrations/20260520000001_init_schema.sql`](supabase/migrations/20260520000001_init_schema.sql) — tables, enums, helpers, views
+2. [`supabase/migrations/20260520000002_rls.sql`](supabase/migrations/20260520000002_rls.sql) — Row Level Security policies
+3. [`supabase/seed.sql`](supabase/seed.sql) — default org + fleets + sample SKUs (idempotent)
+
+### Option B — Supabase CLI (recommended once you're iterating on schema)
+
+```bash
+brew install supabase/tap/supabase    # one-time
+supabase init                          # creates supabase/config.toml
+supabase link --project-ref oeqkrphmtqlyuyollxck
+supabase db push                       # applies pending migrations
+# seed.sql isn't auto-run against linked projects:
+psql "$(supabase db remote-url)" -f supabase/seed.sql
+```
+
+Use `supabase migration new <name>` for future changes — it creates a
+correctly-timestamped file in `supabase/migrations/`.
+
 ## Generating Supabase types
 
 Once your schema is deployed:
