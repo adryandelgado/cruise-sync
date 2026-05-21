@@ -1,0 +1,51 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Build output
+dist
+dist-ssr
+build
+*.local
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Env (keep .env.example tracked, ignore real secrets)
+.env
+.env.local
+.env.*.local
+
+# TanStack Router generated tree (committed in many setups, but easier to ignore for now)
+# Comment the next line out if you'd rather commit the generated tree.
+src/routeTree.gen.ts
+
+# Test/coverage
+coverage
+*.lcov
+
+# TypeScript incremental build info
+*.tsbuildinfo
+
+# Supabase CLI local artifacts
+supabase/.branches
+supabase/.temp
+supabase/.env
