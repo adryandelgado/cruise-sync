@@ -2,26 +2,25 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export const Route = createFileRoute("/procurement/")({
-  component: ProcurementPage,
+export const Route = createFileRoute("/_authed/warehouse/")({
+  component: WarehousePage,
 });
 
-function ProcurementPage() {
+function WarehousePage() {
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-6">
       <header>
-        <h1 className="text-2xl font-semibold tracking-tight">Procurement</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Warehouse</h1>
         <p className="text-sm text-stone-400">
-          Stock-outs flagged from the warehouse drop into this queue.
+          Pack queue and operator assignments.
         </p>
       </header>
       <Card>
         <CardHeader>
-          <CardTitle>No open requests</CardTitle>
+          <CardTitle>No active jobs</CardTitle>
         </CardHeader>
         <CardContent className="text-sm text-stone-400">
-          Material list items marked &ldquo;not in stock&rdquo; create
-          procurement requests here.
+          Phase 3 of the build sequence wires the tablet pack flow.
         </CardContent>
       </Card>
     </div>

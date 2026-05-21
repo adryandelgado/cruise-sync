@@ -1,8 +1,7 @@
 import { Outlet, createRootRoute } from "@tanstack/react-router";
 import { Suspense, lazy } from "react";
 
-import { EnvBanner } from "@/components/layout/EnvBanner";
-import { Sidebar } from "@/components/layout/Sidebar";
+import { AuthProvider } from "@/context/AuthContext";
 
 const RouterDevtools = import.meta.env.PROD
   ? () => null
@@ -18,17 +17,11 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   return (
-    <div className="flex h-full w-full">
-      <Sidebar />
-      <div className="flex h-full flex-1 flex-col overflow-hidden">
-        <EnvBanner />
-        <main className="flex-1 overflow-y-auto p-8">
-          <Outlet />
-        </main>
-      </div>
+    <AuthProvider>
+      <Outlet />
       <Suspense fallback={null}>
         <RouterDevtools />
       </Suspense>
-    </div>
+    </AuthProvider>
   );
 }
