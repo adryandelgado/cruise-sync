@@ -90,7 +90,7 @@ function LoginPage() {
         {state === "sent" ? (
           <SentConfirmation email={email} onBack={() => setState("idle")} />
         ) : (
-          <form onSubmit={void handleSubmit} className="flex flex-col gap-3">
+          <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="email" className="text-xs font-medium text-stone-300">
                 Email address
