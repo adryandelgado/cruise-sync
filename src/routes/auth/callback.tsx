@@ -23,7 +23,15 @@ function AuthCallbackPage() {
       return;
     }
 
+    const isRecovery =
+      url.searchParams.get("type") === "recovery" ||
+      new URLSearchParams(url.hash.slice(1)).get("type") === "recovery";
+
     if (!code) {
+      if (isRecovery) {
+        void navigate({ to: "/reset-password", replace: true });
+        return;
+      }
       // Implicit flow: detectSessionInUrl handled it already. Just navigate.
       void navigate({ to: "/", replace: true });
       return;
@@ -35,6 +43,8 @@ function AuthCallbackPage() {
       .then(({ error: authError }) => {
         if (authError) {
           setError(authError.message);
+        } else if (isRecovery) {
+          void navigate({ to: "/reset-password", replace: true });
         } else {
           void navigate({ to: "/", replace: true });
         }

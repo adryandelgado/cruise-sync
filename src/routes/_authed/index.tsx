@@ -1,16 +1,26 @@
 import { Link, createFileRoute } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { ClipboardList, Package, Ship, ShoppingCart, Truck, Wallet } from "lucide-react";
 import { HealthStatus } from "@/components/dashboard/HealthStatus";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useDashboardStats } from "@/hooks/useDashboardStats";
+import { useAuth } from "@/context/AuthContext";
+import { canAccessNavRoute, canCreateCspo } from "@/lib/navAccess";
+import { ensureDashboardStats, prefetchNewCspoForm } from "@/lib/queryPrefetch";
+import { isInitialQueryLoad } from "@/lib/queryLoading";
 import { formatCurrency } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authed/")({
+  loader: ({ context: { queryClient } }) => ensureDashboardStats(queryClient),
   component: DashboardPage,
 });
 
 function DashboardPage() {
-  const { data: stats } = useDashboardStats();
+  const qc = useQueryClient();
+  const { profile } = useAuth();
+  const { data: stats, isPending, error } = useDashboardStats();
+  const loading = isInitialQueryLoad(isPending, stats);
+  const showNewCspo = canCreateCspo(profile?.role);
 
   const STATS = [
     {
@@ -29,24 +39,24 @@ function DashboardPage() {
     },
     {
       label: "Packing queue",
-      value: "0",
+      value: stats ? String(stats.packingQueue) : "—",
       hint: "Jobs awaiting warehouse pick",
       icon: Package,
       href: "/warehouse" as const,
     },
     {
       label: "Procurement queue",
-      value: "0",
+      value: stats ? String(stats.procurementQueue) : "—",
       hint: "Items waiting on suppliers",
       icon: ShoppingCart,
       href: "/procurement" as const,
     },
     {
       label: "Today's deliveries",
-      value: "0",
-      hint: "Freight pickups scheduled",
+      value: stats ? String(stats.todaysDeliveries) : "—",
+      hint: "Shipments in transit awaiting receipt",
       icon: Truck,
-      href: "/warehouse" as const,
+      href: "/onboard" as const,
     },
     {
       label: "Vessels under service",
@@ -55,7 +65,7 @@ function DashboardPage() {
       icon: Ship,
       href: "/cspos" as const,
     },
-  ];
+  ].filter((stat) => canAccessNavRoute(profile?.role, stat.href));
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-8">
@@ -64,15 +74,28 @@ function DashboardPage() {
           <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
           <p className="text-sm text-stone-400">ShipSync operations overview</p>
         </div>
-        <Link
-          to="/cspos/new"
-          className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500"
-        >
-          + New CSPO
-        </Link>
+        {showNewCspo && (
+          <Link
+            to="/cspos/new"
+            onMouseEnter={() => prefetchNewCspoForm(qc)}
+            className="inline-flex items-center gap-2 rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:bg-brand-500"
+          >
+            + New CSPO
+          </Link>
+        )}
       </header>
 
       <HealthStatus />
+
+      {error && (
+        <div className="rounded-md border border-red-900/60 bg-red-950/40 px-4 py-3 text-sm text-red-300">
+          Could not load dashboard stats: {error.message}
+        </div>
+      )}
+
+      {loading && !stats && (
+        <p className="text-sm text-stone-500">Loading stats…</p>
+      )}
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {STATS.map(({ label, value, hint, icon: Icon, href }) => (

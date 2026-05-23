@@ -59,4 +59,18 @@ export default defineConfig({
     port: 5173,
     host: true,
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            if (id.includes("@supabase")) return "supabase";
+            if (id.includes("@tanstack")) return "tanstack";
+            if (id.includes("lucide-react")) return "icons";
+            if (id.includes("react-dom") || id.includes("react/")) return "react";
+          }
+        },
+      },
+    },
+  },
 });

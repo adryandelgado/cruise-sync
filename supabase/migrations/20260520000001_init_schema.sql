@@ -214,7 +214,10 @@ BEGIN
     v_org_id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data ->> 'full_name', NEW.email),
-    'viewer'
+    COALESCE(
+      NULLIF(NEW.raw_app_meta_data ->> 'role', '')::public.user_role,
+      'pm'
+    )
   );
 
   RETURN NEW;

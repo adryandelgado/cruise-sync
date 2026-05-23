@@ -1,25 +1,33 @@
 import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
-import { ArrowLeft, Calendar, MapPin, Ship } from "lucide-react";
+import { ArrowLeft, Calendar, Loader2, MapPin, Ship } from "lucide-react";
+import { MaterialListSection } from "@/components/cspo/MaterialListSection";
+import { ClosureSection } from "@/components/cspo/ClosureSection";
+import { CspoWorkflowSection } from "@/components/cspo/CspoWorkflowSection";
+import { FinancialSummaryCards } from "@/components/cspo/FinancialSummaryCards";
+import { ValueLedgerSection } from "@/components/cspo/ValueLedgerSection";
 import { Badge, statusLabel } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { useCspo } from "@/hooks/useCspos";
-import { formatCurrency } from "@/lib/utils";
+import { useActivateCspo, useCspoDetailSession } from "@/hooks/useCspos";
+import { ensureCspoDetailPage } from "@/lib/queryPrefetch";
+import { isInitialQueryLoad } from "@/lib/queryLoading";
 
 export const Route = createFileRoute("/_authed/cspos/$cspoId")({
+  loader: ({ context: { queryClient }, params: { cspoId } }) =>
+    ensureCspoDetailPage(queryClient, cspoId),
   component: CspoDetailPage,
 });
 
 function CspoDetailPage() {
   const { cspoId } = Route.useParams();
   const navigate = useNavigate();
-  const { data, isLoading, error } = useCspo(cspoId);
+  const { data: session, isPending, error } = useCspoDetailSession(cspoId);
+  const activateCspo = useActivateCspo();
 
-  if (isLoading) {
+  if (isInitialQueryLoad(isPending, session)) {
     return <div className="py-24 text-center text-sm text-stone-500">Loading…</div>;
   }
 
-  if (error || !data?.detail) {
+  if (error || !session) {
     return (
       <div className="py-24 text-center">
         <p className="text-sm text-red-400">{(error as Error)?.message ?? "CSPO not found"}</p>
@@ -33,52 +41,17 @@ function CspoDetailPage() {
     );
   }
 
-  const { detail: c, summary: s } = data;
-  const vessel = c.vessel as unknown as { name: string; fleet?: { name: string } | null } | null;
+  const c = session.cspo;
+  const s = session.financial.summary;
+  const workflow = session.workflow;
+  const aboardPhase = ["in_transit", "on_vessel", "in_progress", "closing"].includes(c.status);
 
-  const valueCards = [
-    {
-      label: "Original value",
-      value: formatCurrency(Number(c.original_value), c.currency),
-      sub: "As-issued PO amount",
-      color: "text-stone-100",
-    },
-    {
-      label: "Open balance",
-      value: s ? formatCurrency(Number(s.open_balance), c.currency) : "—",
-      sub: "Remaining unreconciled",
-      color: "text-emerald-300",
-    },
-    {
-      label: "Consumed / installed",
-      value: s
-        ? formatCurrency(
-            Number(s.consumed_value ?? 0) + Number(s.installed_value ?? 0),
-            c.currency,
-          )
-        : "—",
-      sub: "Written off against this PO",
-      color: "text-amber-300",
-    },
-    {
-      label: "Returned",
-      value: s ? formatCurrency(Number(s.returned_value ?? 0), c.currency) : "—",
-      sub: "Value back in warehouse",
-      color: "text-sky-300",
-    },
-    {
-      label: "Transferred out",
-      value: s ? formatCurrency(Number(s.transferred_out_value ?? 0), c.currency) : "—",
-      sub: "Moved to another CSPO",
-      color: "text-violet-300",
-    },
-    {
-      label: "Items on vessel",
-      value: s ? String(s.items_on_vessel ?? 0) : "—",
-      sub: "Material instances aboard",
-      color: "text-stone-100",
-    },
-  ];
+  const unitsAboard = aboardPhase ? workflow.units_aboard : s.items_on_vessel;
+  const skusAboard = aboardPhase ? workflow.sku_count_aboard : 0;
+  const aboardLabel =
+    aboardPhase && skusAboard > 0
+      ? `${skusAboard} SKUs · ${unitsAboard} units`
+      : String(unitsAboard);
 
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-6">
@@ -110,12 +83,12 @@ function CspoDetailPage() {
           </div>
 
           <div className="flex flex-wrap items-center gap-4 text-sm text-stone-400">
-            {vessel && (
+            {c.vessel && (
               <span className="flex items-center gap-1.5">
                 <Ship className="h-3.5 w-3.5" />
-                {vessel.name}
-                {vessel.fleet?.name && (
-                  <span className="text-stone-600">· {vessel.fleet.name}</span>
+                {c.vessel.name}
+                {c.vessel.fleet?.name && (
+                  <span className="text-stone-600">· {c.vessel.fleet.name}</span>
                 )}
               </span>
             )}
@@ -142,53 +115,80 @@ function CspoDetailPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {c.status === "draft" && (
-            <Button variant="primary" size="sm">
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={activateCspo.isPending}
+              onClick={() => void activateCspo.mutateAsync(cspoId)}
+            >
+              {activateCspo.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : null}
               Activate CSPO
             </Button>
           )}
+          {c.status === "in_transit" && (
+            <Link to="/onboard/receive/$cspoId" params={{ cspoId: c.id }}>
+              <Button variant="primary" size="sm">Receive aboard</Button>
+            </Link>
+          )}
+          {(c.status === "in_progress" || c.status === "on_vessel") && (
+            <>
+              <Link to="/onboard/log/$cspoId" params={{ cspoId: c.id }}>
+                <Button variant="secondary" size="sm">Daily log</Button>
+              </Link>
+              <Link to="/onboard/returns/$cspoId" params={{ cspoId: c.id }}>
+                <Button variant="secondary" size="sm">Returns / transfer</Button>
+              </Link>
+            </>
+          )}
         </div>
       </div>
+
+      <CspoWorkflowSection
+        cspoId={c.id}
+        cspoStatus={c.status}
+        summary={workflow}
+      />
 
       {/* Financial spine */}
       <section>
         <h2 className="mb-3 text-xs font-medium uppercase tracking-wide text-stone-500">
           Financial summary
         </h2>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {valueCards.map(({ label, value, sub, color }) => (
-            <Card key={label} className="flex flex-col gap-1 p-4">
-              <span className="text-xs text-stone-500">{label}</span>
-              <span className={`text-xl font-semibold tracking-tight ${color}`}>
-                {value}
-              </span>
-              <span className="text-xs text-stone-600">{sub}</span>
-            </Card>
-          ))}
-        </div>
+        <FinancialSummaryCards
+          currency={c.currency}
+          originalValue={Number(c.original_value)}
+          summary={s}
+          aboardLabel={aboardLabel}
+          loading={false}
+        />
+        {s && !s.has_initial_ledger && Number(c.original_value) > 0 && (
+          <p className="mt-2 text-xs text-amber-400">
+            Missing initial ledger entry — run migration 018 or the open balance may not match
+            original PO value until backfilled.
+          </p>
+        )}
       </section>
 
-      {/* Material list placeholder */}
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-xs font-medium uppercase tracking-wide text-stone-500">
-            Material list
-          </h2>
-          <Button variant="secondary" size="sm" disabled>
-            + Add items
-          </Button>
-        </div>
-        <Card className="py-12">
-          <div className="flex flex-col items-center gap-2 text-center">
-            <p className="text-sm font-medium text-stone-400">No materials yet</p>
-            <p className="max-w-xs text-xs text-stone-600">
-              Activate the CSPO and build the material list — items will appear
-              here and drive the warehouse pack flow.
-            </p>
-          </div>
-        </Card>
-      </section>
+      <ValueLedgerSection
+        currency={c.currency}
+        entries={session.financial.entries}
+        isLoading={false}
+        defaultCollapsed={session.financial.entries.length > 25}
+      />
+
+      {/* Material list */}
+      <MaterialListSection cspoId={c.id} cspoStatus={c.status} />
+
+      {/* Closure */}
+      <ClosureSection
+        cspoId={c.id}
+        cspoStatus={c.status}
+        summary={s}
+      />
     </div>
   );
 }

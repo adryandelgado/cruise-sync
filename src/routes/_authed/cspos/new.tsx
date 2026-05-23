@@ -5,15 +5,19 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCreateCspo } from "@/hooks/useCspos";
 import { useVessels } from "@/hooks/useVessels";
+import { ensureVessels } from "@/lib/queryPrefetch";
+import { isInitialQueryLoad } from "@/lib/queryLoading";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authed/cspos/new")({
+  loader: ({ context: { queryClient } }) => ensureVessels(queryClient),
   component: NewCspoPage,
 });
 
 function NewCspoPage() {
   const navigate = useNavigate();
-  const { data: vessels, isLoading: loadingVessels } = useVessels();
+  const { data: vessels, isPending } = useVessels();
+  const loadingVessels = isInitialQueryLoad(isPending, vessels);
   const createCspo = useCreateCspo();
 
   const [form, setForm] = useState({
@@ -33,7 +37,7 @@ function NewCspoPage() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    const id = await createCspo.mutateAsync({
+    const { id } = await createCspo.mutateAsync({
       cspo_number: form.cspo_number.trim(),
       vessel_id: form.vessel_id,
       attendance_type: form.attendance_type,

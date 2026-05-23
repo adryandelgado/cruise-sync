@@ -37,10 +37,15 @@ lerna-debug.log*
 # TanStack Router generated tree (committed in many setups, but easier to ignore for now)
 # Comment the next line out if you'd rather commit the generated tree.
 src/routeTree.gen.ts
+.tanstack/
 
 # Test/coverage
 coverage
 *.lcov
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
 
 # TypeScript incremental build info
 *.tsbuildinfo

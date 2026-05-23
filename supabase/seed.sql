@@ -86,3 +86,50 @@ VALUES
    'Stainless steel cotter pin assortment, 200 pcs.',
    'fasteners', 'box', 18.00, 32.00, '7318.24.00', 30, false)
 ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO public.suppliers (id, org_id, name, contact_email, payment_terms) VALUES
+  ('00000000-fffe-0000-0006-000000000001', '00000000-fffe-0000-0001-000000000001',
+   'Marine Supply Co.', 'orders@marinesupply.example', 'Net 30')
+ON CONFLICT (id) DO NOTHING;
+
+-- ----------------------------------------------------------------------------
+-- Sample material instances (warehouse stock for dev)
+-- Skipped if any instances already exist for the org.
+-- ----------------------------------------------------------------------------
+DO $$
+DECLARE
+  v_org uuid := '00000000-fffe-0000-0001-000000000001';
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.material_instances WHERE org_id = v_org) THEN
+    RETURN;
+  END IF;
+
+  INSERT INTO public.material_instances
+    (org_id, sku_id, status, current_location_id, acquired_cost)
+  SELECT
+    v_org,
+    sku.id,
+    'in_stock',
+    loc.id,
+    sku.default_cost
+  FROM public.skus sku
+  CROSS JOIN LATERAL (
+    SELECT id FROM public.locations
+    WHERE org_id = sku.org_id AND code = CASE sku.sku_code
+      WHEN 'PETZL-ASAP-LOCK' THEN 'A-12'
+      WHEN 'AWLGRIP-2L'     THEN 'C-04'
+      ELSE 'A-12'
+    END
+    LIMIT 1
+  ) loc
+  CROSS JOIN generate_series(1, CASE sku.sku_code
+    WHEN 'PETZL-ASAP-LOCK' THEN 8
+    WHEN 'AWLGRIP-2L'      THEN 14
+    WHEN 'GRIP-TAPE-3M'    THEN 22
+    WHEN 'ROPE-50FT-DBL-BRAID' THEN 5
+    WHEN 'COTTER-PIN-MIX'  THEN 35
+    ELSE 0
+  END)
+  WHERE sku.org_id = v_org
+    AND sku.sku_code <> 'ALU-FRAME-CUSTOM';
+END $$;

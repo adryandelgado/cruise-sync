@@ -46,10 +46,15 @@ export function HealthStatus() {
   if (data.state === "schema_missing") {
     return (
       <StatusRow variant="warn">
-        <AlertTriangle className="h-3.5 w-3.5" />
-        Supabase reachable but schema not applied — run the three SQL files from{" "}
-        <code className="mx-0.5 font-mono text-xs">supabase/migrations/</code>{" "}
-        in the dashboard SQL editor.
+        <div className="flex flex-col gap-1">
+          <span className="flex items-center gap-2">
+            <AlertTriangle className="h-3.5 w-3.5" />
+            Supabase reachable but base schema not applied.
+          </span>
+          <span className="ml-5 font-mono text-[11px]">
+            Run migrations 001 → 002 → 003 in SQL Editor first.
+          </span>
+        </div>
       </StatusRow>
     );
   }
@@ -57,9 +62,20 @@ export function HealthStatus() {
   if (data.state === "connected" && !data.schemaOk) {
     return (
       <StatusRow variant="warn">
-        <AlertTriangle className="h-3.5 w-3.5" />
-        Supabase connected — schema partially applied ({data.tablesFound}/
-        {data.tablesExpected} tables found). Re-run the migrations.
+        <div className="flex flex-col gap-1">
+          <span className="flex items-center gap-2">
+            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+            Schema incomplete ({data.tablesFound}/{data.tablesExpected} tables).
+            See the amber banner at the top — paste each migration in Supabase SQL Editor.
+          </span>
+          {(data.pendingMigrations ?? []).length > 0 && (
+            <ul className="ml-5 list-disc font-mono text-[11px]">
+              {data.pendingMigrations!.map((m) => (
+                <li key={m}>{m}</li>
+              ))}
+            </ul>
+          )}
+        </div>
       </StatusRow>
     );
   }

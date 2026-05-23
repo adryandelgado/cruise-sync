@@ -3,7 +3,7 @@ import { Anchor, ArrowRight, Eye, EyeOff, Loader2, Mail } from "lucide-react";
 import { type FormEvent, useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { signInWithMagicLink, signInWithPassword } from "@/lib/auth";
+import { requestPasswordReset, signInWithMagicLink, signInWithPassword } from "@/lib/auth";
 import { env } from "@/lib/env";
 import { cn } from "@/lib/utils";
 
@@ -11,7 +11,7 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
 });
 
-type Mode = "password" | "magic";
+type Mode = "password" | "magic" | "forgot";
 type State = "idle" | "loading" | "sent" | "error";
 
 function LoginPage() {
@@ -36,6 +36,15 @@ function LoginPage() {
         setError(authError.message);
       } else {
         void navigate({ to: "/" });
+      }
+    } else if (mode === "forgot") {
+      const callbackUrl = `${window.location.origin}/auth/callback?type=recovery`;
+      const { error: authError } = await requestPasswordReset(email.trim(), callbackUrl);
+      if (authError) {
+        setState("error");
+        setError(authError.message);
+      } else {
+        setState("sent");
       }
     } else {
       const callbackUrl = `${window.location.origin}/auth/callback`;
@@ -79,16 +88,69 @@ function LoginPage() {
 
         {/* Mode toggle */}
         <div className="mb-6 flex gap-1 rounded-lg border border-stone-800 bg-stone-900 p-1">
-          <ModeButton active={mode === "password"} onClick={() => { setMode("password"); setState("idle"); }}>
+          <ModeButton active={mode === "password"} onClick={() => { setMode("password"); setState("idle"); setError(""); }}>
             Password
           </ModeButton>
-          <ModeButton active={mode === "magic"} onClick={() => { setMode("magic"); setState("idle"); }}>
+          <ModeButton active={mode === "magic"} onClick={() => { setMode("magic"); setState("idle"); setError(""); }}>
             Magic link
           </ModeButton>
         </div>
 
         {state === "sent" ? (
-          <SentConfirmation email={email} onBack={() => setState("idle")} />
+          mode === "forgot" ? (
+            <ResetSentConfirmation email={email} onBack={() => { setMode("password"); setState("idle"); }} />
+          ) : (
+            <SentConfirmation email={email} onBack={() => setState("idle")} />
+          )
+        ) : mode === "forgot" ? (
+          <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-3">
+            <p className="text-sm text-stone-400">
+              Enter your email and we&apos;ll send a link to reset your password.
+            </p>
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="email" className="text-xs font-medium text-stone-300">
+                Email address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-500" />
+                <input
+                  id="email"
+                  type="email"
+                  required
+                  autoFocus
+                  placeholder="you@fullsailmarine.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full rounded-md border border-stone-700 bg-stone-900 py-2.5 pl-9 pr-3 text-sm text-stone-100 placeholder:text-stone-600 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                />
+              </div>
+            </div>
+            {state === "error" && (
+              <p className="rounded-md border border-red-900/60 bg-red-950/40 px-3 py-2 text-xs text-red-300">
+                {error}
+              </p>
+            )}
+            <Button type="submit" disabled={state === "loading" || !email.trim()} className="mt-1 w-full">
+              {state === "loading" ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Sending…
+                </>
+              ) : (
+                <>
+                  Send reset link
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
+            </Button>
+            <button
+              type="button"
+              onClick={() => { setMode("password"); setState("idle"); setError(""); }}
+              className="text-xs text-stone-500 underline-offset-2 hover:text-stone-300 hover:underline"
+            >
+              Back to sign in
+            </button>
+          </form>
         ) : (
           <form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-3">
             <div className="flex flex-col gap-1.5">
@@ -133,12 +195,21 @@ function LoginPage() {
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                <p className="text-xs text-stone-500">
-                  Create this user first in{" "}
-                  <span className="text-stone-400">
-                    Supabase → Authentication → Users → Add user
-                  </span>
-                </p>
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs text-stone-500">
+                    New user?{" "}
+                    <span className="text-stone-400">
+                      Supabase → Authentication → Users → Add user
+                    </span>
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setMode("forgot"); setState("idle"); setError(""); }}
+                    className="shrink-0 text-xs text-brand-400 underline-offset-2 hover:underline"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
               </div>
             )}
 
@@ -194,6 +265,31 @@ function ModeButton({
     >
       {children}
     </button>
+  );
+}
+
+function ResetSentConfirmation({ email, onBack }: { email: string; onBack: () => void }) {
+  return (
+    <div className="flex flex-col gap-4 rounded-lg border border-emerald-900/60 bg-emerald-950/30 p-5 text-sm">
+      <div className="flex flex-col gap-1">
+        <p className="font-medium text-emerald-200">Check your email</p>
+        <p className="text-stone-400">
+          If an account exists for{" "}
+          <span className="font-medium text-stone-200">{email}</span>, we sent a
+          password reset link. Click it to choose a new password.
+        </p>
+        <p className="mt-2 text-xs text-stone-500">
+          Email not arriving? Use Supabase Dashboard → Users → Add user with a password,
+          or reset via the service-role API while SMTP is being configured.
+        </p>
+      </div>
+      <button
+        onClick={onBack}
+        className="self-start text-xs text-stone-500 underline-offset-2 hover:text-stone-300 hover:underline"
+      >
+        Back to sign in
+      </button>
+    </div>
   );
 }
 

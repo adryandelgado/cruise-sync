@@ -1,4 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Anchor,
   ClipboardList,
@@ -6,6 +7,8 @@ import {
   LayoutDashboard,
   LogOut,
   Package,
+  BarChart3,
+  Ship,
   ShoppingCart,
   Truck,
   type LucideIcon,
@@ -13,10 +16,12 @@ import {
 
 import { useAuth } from "@/context/AuthContext";
 import { signOut } from "@/lib/auth";
+import { canAccessNavRoute, type NavRoute } from "@/lib/navAccess";
+import { prefetchSidebarRoute } from "@/lib/queryPrefetch";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
-  to: string;
+  to: NavRoute;
   label: string;
   icon: LucideIcon;
 }
@@ -25,19 +30,25 @@ const NAV: NavItem[] = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/cspos", label: "CSPOs", icon: ClipboardList },
   { to: "/proposals", label: "Proposals", icon: FileText },
+  { to: "/sales-quotes", label: "Sales quotes", icon: FileText },
   { to: "/inventory", label: "Inventory", icon: Package },
   { to: "/procurement", label: "Procurement", icon: ShoppingCart },
   { to: "/warehouse", label: "Warehouse", icon: Truck },
+  { to: "/onboard", label: "Onboard", icon: Ship },
+  { to: "/reports", label: "Reports", icon: BarChart3 },
 ];
 
 export function Sidebar() {
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const qc = useQueryClient();
 
   async function handleSignOut() {
     await signOut();
     void navigate({ to: "/login" });
   }
+
+  const navItems = NAV.filter((item) => canAccessNavRoute(profile?.role, item.to));
 
   const displayName = profile?.full_name ?? profile?.email ?? "…";
   const initials = displayName
@@ -55,11 +66,12 @@ export function Sidebar() {
       </div>
 
       <nav className="flex flex-1 flex-col gap-0.5 px-2">
-        {NAV.map(({ to, label, icon: Icon }) => (
+        {navItems.map(({ to, label, icon: Icon }) => (
           <Link
             key={to}
             to={to}
             activeOptions={{ exact: to === "/" }}
+            onMouseEnter={() => prefetchSidebarRoute(qc, to)}
             className={cn(
               "flex items-center gap-3 rounded-md px-3 py-2 text-sm text-stone-300 transition-colors hover:bg-stone-900 hover:text-stone-100",
             )}
