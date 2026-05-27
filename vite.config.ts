@@ -5,15 +5,9 @@ import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
-// vite.config.ts
 export default defineConfig({
   base: "/cruise-sync/",
-  plugins: [react()],
-})
-
-export default defineConfig({
   plugins: [
-    // Router plugin must run before the React plugin.
     TanStackRouterVite({
       target: "react",
       autoCodeSplitting: true,
@@ -30,28 +24,14 @@ export default defineConfig({
         theme_color: "#0c0a09",
         background_color: "#0c0a09",
         display: "standalone",
-        start_url: "/",
+        start_url: "/cruise-sync/",
         icons: [
-          {
-            src: "pwa-192x192.png",
-            sizes: "192x192",
-            type: "image/png",
-          },
-          {
-            src: "pwa-512x512.png",
-            sizes: "512x512",
-            type: "image/png",
-          },
-          {
-            src: "pwa-512x512.png",
-            sizes: "512x512",
-            type: "image/png",
-            purpose: "maskable",
-          },
+          { src: "pwa-192x192.png", sizes: "192x192", type: "image/png" },
+          { src: "pwa-512x512.png", sizes: "512x512", type: "image/png" },
+          { src: "pwa-512x512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
       },
       workbox: {
-        // Don't precache giant dev artifacts; keep runtime caching simple for v0.
         globPatterns: ["**/*.{js,css,html,svg,png,ico,woff2}"],
       },
     }),
